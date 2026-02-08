@@ -1,0 +1,9 @@
+profile.yaml
+venv/
+docs/
+__pycache__/
+*.pyc
+docs/*.pdf
+docs/*.md
+.DS_Store
+resume_rendered.tex

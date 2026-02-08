@@ -1,0 +1,71 @@
+\documentclass[10pt,a4paper]{article}
+
+\usepackage[a4paper,margin=0.6in]{geometry}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\usepackage[T1]{fontenc}
+
+% Unicode fonts (XeLaTeX)
+\usepackage{fontspec}
+\setmainfont{Helvetica}
+
+\usepackage{xcolor}
+
+% Section style
+\titleformat{\section}{
+  \bfseries\large\raggedright
+}{}{0em}{}[\color{gray}\titlerule]
+
+% Lists & spacing
+\setlist[itemize]{noitemsep, topsep=2pt}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{2pt}
+\linespread{1.05}
+
+% Disable section numbering
+\setcounter{secnumdepth}{0}
+
+% Pandoc tightlist fix
+\providecommand{\tightlist}{}
+% Header variables (Pandoc metadata)
+$if(name)$
+\def\cvname{$name$}
+\def\cvlabel{$label$}
+\def\cvlocation{$location$}
+\def\cvphone{$phone$}
+\def\cvemail{$email$}
+\def\cvlinkedin{$linkedin$}
+$endif$
+
+% Icons
+\usepackage{fontawesome5}
+
+% Fancy Header (Filled by Jinja)
+\newcommand{\cvheader}[6]{
+\begin{center}
+{\Huge\bfseries #1}\\[4pt]
+{\large #2}\\[6pt]
+\small
+\faMapMarker*~#3 \quad|\quad
+\faPhone~#4 \quad|\quad
+\faEnvelope~#5 \quad|\quad
+\faLinkedin~#6
+\end{center}
+\vspace{-8pt}
+}
+
+\begin{document}
+
+\cvheader
+{ {{ basics.name }} }
+{ {{ basics.label }} }
+{ {{ basics.location }} }
+{ {{ basics.phone }} }
+{ {{ basics.email }} }
+{ {{ basics.linkedin }} }
+
+$body$
+
+\end{document}

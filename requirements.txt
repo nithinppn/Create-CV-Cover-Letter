@@ -1,0 +1,4 @@
+PyYAML>=6.0
+ollama>=0.1.8
+Jinja2>=3.1
+pypandoc>=1.13

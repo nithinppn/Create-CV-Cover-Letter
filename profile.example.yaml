@@ -1,0 +1,119 @@
+basics:
+  name: "Your Full Name"
+  label: "Your Professional Title"
+  location: "City, Country"
+  email: "your.email@example.com"
+  phone: "+00 000 0000000"
+  linkedin: "https://linkedin.com/in/yourprofile"
+  birth_date: "DD.MM.YYYY"
+
+education:
+  - institution: "University Name, Country"
+    area: "Degree Program"
+    startDate: "Month Year"
+    endDate: "Month Year / Present"
+    courses:
+      - "Course Name 1"
+      - "Course Name 2"
+
+  - institution: "Previous University, Country"
+    area: "Bachelor / Diploma Program"
+    startDate: "Month Year"
+    endDate: "Month Year"
+
+experience:
+  - company: "Company Name"
+    location: "City, Country"
+    position: "Job Title"
+    startDate: "Month Year"
+    endDate: "Month Year / Present"
+    summary: "Short description of role and responsibilities."
+    highlights:
+      - "Key achievement or responsibility"
+      - "Another contribution"
+
+projects:
+  - name: "Project Name"
+    date: "Year"
+    description: "Short project description"
+    highlights:
+      - "Key feature or result"
+      - "Technology used"
+
+languages:
+  - language: "English"
+    fluency: "Professional Proficiency"
+  - language: "Another Language"
+    fluency: "Basic / Intermediate / Advanced"
+
+soft_skills:
+  - "Analytical Thinking"
+  - "Teamwork"
+  - "Communication"
+  - "Time Management"
+
+skills:
+  programming:
+    - "Python"
+    - "C++"
+    - "SQL"
+
+  libraries_and_tools:
+    - "NumPy"
+    - "Pandas"
+    - "Matplotlib"
+    - "Docker"
+
+  software:
+    - "MS Office"
+    - "CAD Software"
+    - "ERP / PLM Tool"
+
+certifications:
+  - name: "Certification Name"
+    issuer: "Organization"
+    year: "YYYY"
+
+cover_letter_preferences:
+  soft_skills:
+    - "Well-structured work style"
+    - "Team player"
+
+  career_goals:
+    - "Looking for internship / working student role"
+    - "Interested in thesis opportunity"
+
+  language_note:
+    - "Strong English skills"
+    - "Actively improving German"
+
+skills_buckets:
+  communication_enablement:
+    items:
+      - "Presentation Tools"
+      - "Data Visualization"
+      - "Content Structuring"
+
+  data_ai:
+    items:
+      - "Data Analysis"
+      - "Machine Learning"
+      - "Sensor Fusion"
+
+  programming_engineering:
+    items:
+      - "Python"
+      - "C++"
+      - "SQL"
+
+  tools_platforms:
+    items:
+      - "Pandas"
+      - "Docker"
+      - "TensorFlow"
+      - "Office Tools"
+
+  languages:
+    items:
+      - "English (Professional)"
+      - "German (Intermediate)"
