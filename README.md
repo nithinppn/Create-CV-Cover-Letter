@@ -1,154 +1,124 @@
-# Create-CV-Cover-Letter
-## 📄 AI-Powered CV & Cover Letter Generator
+# 📄 AI-Powered CV & Cover Letter Generator
 
-This project automatically generates tailored CVs and cover letters in Markdown and PDF format based on a job description and a personal profile.
-It uses Ollama (LLM), Pandoc, and LaTeX to create professional, ATS-friendly application documents.
+Automatically generate tailored, ATS-optimized CVs and cover letters
+from job descriptions using a local LLM.
 
-🚀 Features
+This project uses **Ollama (llama3)** for privacy-friendly inference and
+generates professional documents in **Markdown and PDF format** using
+**Pandoc and LaTeX**.
 
-Generates customized CV and cover letter for each job application
+------------------------------------------------------------------------
 
-Uses local LLMs via Ollama (privacy-friendly)
+## 🚀 Features
 
-Automatically tailors content to job descriptions
+-   🔍 Analyzes job descriptions using a local LLM
+-   🎯 Automatically tailors CV and cover letter content
+-   📑 Generates Markdown (.md) and PDF (.pdf) files
+-   🧠 Filters relevant skills, projects, and experience
+-   🔐 Fully local processing (no cloud APIs)
+-   📁 Stores generated files in a dedicated /docs folder
+-   🧾 ATS-friendly formatting
 
-Produces both Markdown (.md) and PDF (.pdf) files
+------------------------------------------------------------------------
 
-Supports LaTeX-based professional formatting
+## 🏗 Project Structure
 
-Filters and selects relevant projects and skills
+    project-root/
+    │
+    ├── main.py
+    ├── profile.yaml
+    ├── template_cv.md
+    ├── template_cover_letter.md
+    ├── resume_template.tex
+    ├── requirements.txt
+    ├── README.md
+    │
+    └── docs/
+        ├── CV_<Company>_<Date>.pdf
+        ├── CV_<Company>_<Date>.md
+        ├── CoverLetter_<Company>_<Date>.pdf
+        └── CoverLetter_<Company>_<Date>.md
 
-Stores generated files in a dedicated output folder
+------------------------------------------------------------------------
 
-project-root/
-│
-├── main.py                  # Main generator script
-├── profile.yaml             # Personal profile data
-├── template_cv.md           # CV Markdown template
-├── resume_template.tex      # LaTeX template for PDF rendering
-├── resume_rendered.tex      # Auto-generated LaTeX file
-├── docs/                    # Generated output files (ignored by Git)
-├── .gitignore
-└── README.md
+## ⚙️ Requirements
 
-### 📂 Output Files (docs/)
+### 1️⃣ Python (3.9+)
 
-All generated files are stored in the docs/ folder:
+### 2️⃣ Ollama
 
-CV in Markdown: CV_<Company>_<Date>.md
+    ollama serve
+    ollama pull llama3
 
-CV in PDF: CV_<Company>_<Date>.pdf
+### 3️⃣ Pandoc
 
-Cover Letter in Markdown: CoverLetter_<Company>_<Date>.md
+### 4️⃣ LaTeX (TeX Live / MacTeX)
 
-Cover Letter in PDF: CoverLetter_<Company>_<Date>.pdf
-docs/
-├── CV_Bosch_2026-02-08.pdf
-├── CV_Bosch_2026-02-08.md
-├── CoverLetter_Bosch_2026-02-08.pdf
-└── CoverLetter_Bosch_2026-02-08.md
+------------------------------------------------------------------------
 
-⚙️ Requirements
+## 📦 Install Python Dependencies
 
-Make sure the following are installed:
+    pip install -r requirements.txt
 
-1. Python (3.9+ recommended)
-2. Ollama
+Example `requirements.txt`:
 
-Install and pull the model:
+    pyyaml
+    ollama
+    jinja2
+    pypandoc
 
-ollama serve
-ollama pull llama3
+------------------------------------------------------------------------
 
-3. Pandoc
-4. LaTeX (MacTeX / TeX Live)
-
-### 📦 Python Dependencies
-
-Install required packages:
-
-pip install pyyaml ollama jinja2 pypandoc
-
-## 📝 Configuration Files
-### profile.yaml
-
-Contains your personal and professional data:
-
-Basics (name, title, summary)
-
-Education
-
-Experience
-
-Skills
-
-Projects
-
-Certifications
-
-Languages
-
-Edit this file to customize your profile.
-
-### template_cv.md
-
-Markdown template for the CV layout.
-
-Uses Jinja2 placeholders for dynamic content.
-
-### resume_template.tex
-
-LaTeX template used to render the final PDF.
-
-Controls fonts, margins, and visual style.
-
-## ▶️ How to Use
+## ▶️ Usage
 
 Start Ollama:
 
-ollama serve
-
+    ollama serve
 
 Run the generator:
 
-python main.py
+    python main.py
 
+Enter: - Company name - Paste job description - Type DONE when finished
 
-Enter company name when prompted
+Generated files will be saved in /docs.
 
-Paste job description
+------------------------------------------------------------------------
 
-Type:
+## 🔍 Workflow
 
-DONE (press enter afterwards)
+1.  Load structured profile from profile.yaml\
+2.  Analyze job description via LLM\
+3.  Identify relevant skills and experience\
+4.  Generate tailored summary and content\
+5.  Render Markdown via Jinja2\
+6.  Convert Markdown → PDF using Pandoc + LaTeX\
+7.  Save output to /docs
 
+------------------------------------------------------------------------
 
-Files will be generated in docs/
+## 🧠 Why This Project?
 
-## 🔍 Workflow Overview
+Applying to multiple roles requires constant CV customization.\
+This tool automates that process while ensuring:
 
-Load profile data from profile.yaml
+-   Relevance\
+-   Keyword alignment\
+-   Clean formatting\
+-   Data privacy
 
-Analyze job description using LLM
+------------------------------------------------------------------------
 
-Identify relevant archetypes
+## 📌 Future Improvements
 
-Generate tailored sections:
+-   Embedding-based similarity matching\
+-   Web UI (Streamlit)\
+-   Docker containerization\
+-   CI pipeline for PDF builds\
+-   Multi-model support
 
-- Summary
+------------------------------------------------------------------------
 
-- Skills
+## 📄 License
 
-- Experience
-
-- Projects
-
-- Education
-
-- Certifications
-
-Render Markdown via Jinja2
-
-Convert Markdown → PDF using Pandoc + LaTeX
-
-Save output to docs/
+MIT License
