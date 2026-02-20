@@ -8,6 +8,6 @@ pip install -r requirements.txt
 
 python -m pypandoc.download_pandoc
 
-ollama pull llama3
+ollama pull phi3
 
 echo "✅ Setup complete"

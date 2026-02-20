@@ -49,7 +49,7 @@ def latex_escape(text):
 
 
 # ================= CONFIGURATION =================
-MODEL = "llama3"  # Make sure to run: ollama pull llama3
+MODEL = "phi3:latest"  # Using Phi-3 (ollama pull phi3)
 PROFILE_PATH = "profile.yaml"
 TEMPLATE_PATH = "template_cv.md"
 

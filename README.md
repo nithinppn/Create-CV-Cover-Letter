@@ -3,7 +3,7 @@
 Automatically generate tailored, ATS-optimized CVs and cover letters
 from job descriptions using a local LLM.
 
-This project uses **Ollama (llama3)** for privacy-friendly inference and
+This project uses **Ollama (Phi-3)** for privacy-friendly inference and
 generates professional documents in **Markdown and PDF format** using
 **Pandoc and LaTeX**.
 
@@ -48,7 +48,7 @@ generates professional documents in **Markdown and PDF format** using
 ### 2️⃣ Ollama
 
     ollama serve
-    ollama pull llama3
+    ollama pull phi3
 
 ### 3️⃣ Pandoc
 
