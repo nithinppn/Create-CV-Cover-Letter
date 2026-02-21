@@ -27,6 +27,7 @@ generates professional documents in **Markdown and PDF format** using
     │
     ├── main.py
     ├── profile.yaml
+    ├── prompts.yaml          # LLM prompt templates (edit to customize)
     ├── template_cv.md
     ├── template_cover_letter.md
     ├── resume_template.tex
@@ -106,6 +107,17 @@ This tool automates that process while ensuring:
 -   Keyword alignment\
 -   Clean formatting\
 -   Data privacy
+
+------------------------------------------------------------------------
+
+## ✏️ Customizing Prompts
+
+All LLM prompts are defined in `prompts.yaml`. Edit this file to:
+- Adjust tone, format, or instructions for each section
+- Add or modify task archetypes for job analysis
+- Change placeholder content
+
+Placeholders use `<<NAME>>` format and are documented in the file.
 
 ------------------------------------------------------------------------
 

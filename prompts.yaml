@@ -1,0 +1,207 @@
+# Prompt templates for CV & Cover Letter generation
+# Placeholders use <<NAME>> format and are replaced at runtime.
+# Available placeholders are documented per prompt below.
+
+# Task archetypes for job description analysis
+task_archetypes:
+  - data_analytics
+  - software_engineering
+  - embedded_systems
+  - mechanical_engineering
+  - project_management
+  - research_ml
+  - cloud_devops
+  - manufacturing_quality
+  - supply_chain
+  - consulting_enablement
+  - digital_transformation
+
+prompts:
+  # Placeholders: <<TASK_ARCHETYPES>>, <<JD_EXCERPT>> (1500 chars)
+  archetype_analysis: |
+    Analyze the Job Description and identify the top 3 relevant archetypes from this list:
+    <<TASK_ARCHETYPES>>
+
+    Return ONLY a JSON object: { "archetypes": ["match1", "match2"] }
+
+    Job Description:
+    <<JD_EXCERPT>>
+
+  # Placeholders: <<CURRENT_ROLE>>, <<ARCHETYPES>>, <<JD_EXCERPT>> (800 chars), <<BACKGROUND_SUMMARY>>
+  professional_summary: |
+    Write a generic but powerful Professional Summary (Profile) for a CV.
+
+    MY ROLE: <<CURRENT_ROLE>>
+    TARGET ARCHETYPES: <<ARCHETYPES>>
+    JOB DESCRIPTION HIGHLIGHTS: <<JD_EXCERPT>>
+
+    MY BACKGROUND SUMMARY:
+    <<BACKGROUND_SUMMARY>>
+
+    INSTRUCTIONS:
+    1. Write exactly 3-4 lines.
+    2. Tone: Professional, confident, and tailored to the Job Description.
+    3. Do NOT use "I" or "My". Use implied first person (e.g., "Experienced Software Engineer with..." rather than "I am an experienced...").
+    4. Highlight the intersection of my experience and the job requirements.
+    5. Output plain text only. No headers.
+    6. Use ONLY the provided skills.
+    7. Do not hallucinate.
+
+  # Placeholders: <<JD_EXCERPT>> (800 chars), <<SOFT_SKILLS_JSON>>
+  smart_soft_skills: |
+    Select the top 4 Soft Skills from the list below that are most relevant to this Job.
+
+    JOB EXCERPT: <<JD_EXCERPT>>
+
+    MY SOFT SKILLS POOL:
+    <<SOFT_SKILLS_JSON>>
+
+    INSTRUCTIONS:
+    1. Select exactly 3 or 4 skills that best fit the job description.
+    2. Format strictly as: **Soft Skills:** Skill 1, Skill 2, Skill 3
+    3. Do NOT invent new skills. Use ONLY the provided list.
+    4. Output ONLY the single formatted line.
+
+  # Placeholders: <<ARCHETYPES>>, <<JD_EXCERPT>> (1000 chars), <<ALL_SKILLS_JSON>>
+  smart_skills: |
+    Create a highly targeted 'Skills' section for a CV.
+
+    JOB CONTEXT:
+    Archetypes: <<ARCHETYPES>>
+    JD Excerpt: <<JD_EXCERPT>>
+
+    MY MASTER SKILL LIST:
+    <<ALL_SKILLS_JSON>>
+
+    INSTRUCTIONS:
+    1. Select ONLY the skills from my list that are relevant to this job.
+    2. Group them into 3–4 logical categories named specifically for this role.
+    3. Format: **Category Name:** Skill, Skill, Skill (repeat as required)
+    4. Use ONLY the provided skills.
+    5. Output MUST contain ONLY formatted skill lines.
+    6. Do NOT write explanations, notes, comments, or summaries.
+    7. Do NOT use "*", "-", or numbered lists.
+    8. Do NOT mention ATS, JD, or filtering.
+    9. If you add any text outside the format, the output is invalid.
+    10. Do NOT include a "Languages" category (I will add this manually).
+    11. AVOID REDUNDANCY: If a skill name is contained in the Category Name,
+        OMIT the skill from the list.
+        (Example: If Category is 'Data Analysis', do NOT list 'Data Analysis' inside it.
+        Just list the tools like 'Pandas', 'Excel').
+
+  # Placeholders: <<MAX_PROJECTS>>, <<JD_EXCERPT>> (1000 chars), <<CANDIDATE_PROJECTS_YAML>>
+  smart_projects: |
+    Select the best <<MAX_PROJECTS>> projects from the candidates below.
+
+    JOB CONTEXT: <<JD_EXCERPT>>
+
+    CANDIDATE PROJECTS:
+    <<CANDIDATE_PROJECTS_YAML>>
+
+    INSTRUCTIONS:
+    1. Pick exactly <<MAX_PROJECTS>> projects.
+    2. Format strictly as:
+
+    **Project Name**, date (put name in bold)
+
+    - Bullet point
+    - Bullet point
+    - Bullet point (repeat as needed)
+    3. CRITICAL: DO NOT HALLUCINATE TOOLS. If a project used Python/C++,
+    do NOT write that it used Power BI just because the Job Description asks for it.
+    4. Instead, highlight the *transferable skills* in sentences
+    (e.g., "Complex Data Handling", "Optimization", "Algorithm Design") if the specific tool doesn't match.
+    5. NO intro text.
+    6. Use "-" only.
+    7. Do not put the date/year in quotations.
+
+  # Placeholders: <<ARCHETYPES>>, <<JD_EXCERPT>> (600 chars), <<EXPERIENCE_YAML>>
+  experience: |
+    Rewrite the EXPERIENCE section for a CV.
+
+    CONTEXT: <<ARCHETYPES>>
+    JD SUMMARY: <<JD_EXCERPT>>
+
+    EXPERIENCE:
+    <<EXPERIENCE_YAML>>
+
+    INSTRUCTIONS:
+    1. Output plain text.
+    2. One role per block.
+    3. Format strictly as:
+
+    **Role**, Company, Location, Date
+    Start Date – End Date
+    - Bullet point
+    - Bullet point
+    - Bullet point (repeat as needed)
+    4. No markdown headers.
+    5. Use "-" only.
+    6. If required, add up to 5 points.
+    7. Make sure all the points are ATS friendly and compliant.
+
+  # Placeholders: <<JD_EXCERPT>> (800 chars), <<ARCHETYPES>>, <<CANDIDATE_NAME>>, <<CANDIDATE_LABEL>>, <<CAREER_GOALS>>
+  cover_letter: |
+    Write a German-market style Cover Letter BODY.
+
+    JOB: <<JD_EXCERPT>>
+    ARCHETYPES: <<ARCHETYPES>>
+
+    CANDIDATE:
+    Name: <<CANDIDATE_NAME>>
+    Current: <<CANDIDATE_LABEL>>
+    Motivation: <<CAREER_GOALS>>
+
+    INSTRUCTIONS:
+    1. Three paragraphs (Motivation, Experience Proof, Closing).
+    2. Tone: Professional, direct, enthusiastic.
+    3. Highlight specific overlap between my profile and the job.
+    4. No placeholders.
+
+  # Placeholders: <<ARCHETYPES>>, <<JD_EXCERPT>> (800 chars), <<EDUCATION_YAML>>
+  education: |
+    Create a targeted EDUCATION section for a CV.
+
+    JOB CONTEXT:
+    Archetypes: <<ARCHETYPES>>
+    JD Excerpt: <<JD_EXCERPT>>
+
+    EDUCATION DATA:
+    <<EDUCATION_YAML>>
+
+    INSTRUCTIONS:
+    1. Keep each degree.
+    2. Under each degree, select ONLY the 2-4 most relevant courses.
+    3. Format strictly as:
+
+    **Degree** — Institution, Dates
+
+    - Relevant Coursework: Course 1, Course 2 (repeat as needed)
+    4. Do NOT invent courses.
+    5. No explanations.
+    6. Keep it concise.
+    7. Do not give any headings, such as 'EDUCATION'
+    8. Bold only the degree name, not the institution and dates
+
+  # Placeholders: <<ARCHETYPES>>, <<JD_EXCERPT>> (800 chars), <<CERTIFICATIONS_YAML>>
+  certifications: |
+    Create a targeted CERTIFICATIONS section for a CV.
+
+    JOB CONTEXT:
+    Archetypes: <<ARCHETYPES>>
+    JD Excerpt: <<JD_EXCERPT>>
+
+    MY CERTIFICATIONS:
+    <<CERTIFICATIONS_YAML>>
+
+    INSTRUCTIONS:
+    1. Select ONLY the 2–4 most relevant certifications.
+    2. If fewer are relevant, select fewer.
+    3. Output ONLY bullet points.
+    4. Format strictly as:
+
+    - Certification Name — Issuer (Year)
+
+    5. Do NOT write any headers or labels.
+    6. Do NOT invent certifications.
+    7. No explanations.

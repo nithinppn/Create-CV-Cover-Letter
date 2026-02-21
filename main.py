@@ -4,10 +4,59 @@ import os
 import sys
 import json
 import re
+import logging
 from jinja2 import Template
-from datetime import date
+from datetime import date, datetime
 import pypandoc
 import unicodedata
+
+# ---------- LOGGING ----------
+LOG_DIR = "debug_logs"
+DEBUG = os.environ.get("CV_DEBUG", "0") == "1"
+_logger = None
+
+
+def setup_logging():
+    """Configure logging. Set CV_DEBUG=1 to enable verbose debug output to file and console."""
+    global _logger
+    os.makedirs(LOG_DIR, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_file = os.path.join(LOG_DIR, f"run_{timestamp}.log")
+
+    if DEBUG:
+        logging.basicConfig(
+            level=logging.DEBUG,
+            format="%(asctime)s | %(levelname)s | %(message)s",
+            handlers=[
+                logging.FileHandler(log_file, encoding="utf-8"),
+                logging.StreamHandler(),
+            ],
+            force=True,
+        )
+        logging.getLogger().info(f"Debug logging enabled. Log file: {log_file}")
+    else:
+        logging.basicConfig(level=logging.WARNING, format="%(message)s", force=True)
+
+    _logger = logging.getLogger(__name__)
+    return _logger
+
+
+def log_step(step_name, prompt=None, raw_output=None, processed_output=None, extra=None):
+    """Log a processing step with inputs and outputs."""
+    if not DEBUG or _logger is None:
+        return
+    _logger.info("=" * 60)
+    _logger.info(f"STEP: {step_name}")
+    _logger.info("=" * 60)
+    if prompt is not None:
+        _logger.debug(f"PROMPT (len={len(prompt)}):\n{prompt}")
+    if raw_output is not None:
+        _logger.debug(f"RAW LLM OUTPUT:\n{raw_output}")
+    if processed_output is not None:
+        _logger.debug(f"PROCESSED OUTPUT:\n{processed_output}")
+    if extra:
+        for k, v in extra.items():
+            _logger.debug(f"{k}: {v}")
 
 
 def latex_escape(text):
@@ -52,6 +101,7 @@ def latex_escape(text):
 MODEL = "phi3:latest"  # Using Phi-3 (ollama pull phi3)
 PROFILE_PATH = "profile.yaml"
 TEMPLATE_PATH = "template_cv.md"
+PROMPTS_PATH = "prompts.yaml"
 
 # CV Constraints
 MAX_PROJECTS_TO_SHOW = 3      # The AI will pick the best N projects
@@ -67,13 +117,40 @@ BANNED_PREFIXES = (
     "Note that "
 )
 
-# Task archetypes for context analysis
+# Loaded from prompts.yaml (fallback if file missing)
 TASK_ARCHETYPES = [
     "data_analytics", "software_engineering", "embedded_systems",
     "mechanical_engineering", "project_management", "research_ml",
     "cloud_devops", "manufacturing_quality", "supply_chain",
     "consulting_enablement", "digital_transformation"
 ]
+_PROMPTS_CONFIG = None
+
+
+def load_prompts_config():
+    """Load prompts from prompts.yaml. Falls back to defaults if file missing."""
+    global _PROMPTS_CONFIG, TASK_ARCHETYPES
+    try:
+        with open(PROMPTS_PATH, "r", encoding="utf-8") as f:
+            _PROMPTS_CONFIG = yaml.safe_load(f)
+        if _PROMPTS_CONFIG and "task_archetypes" in _PROMPTS_CONFIG:
+            TASK_ARCHETYPES = _PROMPTS_CONFIG["task_archetypes"]
+        return _PROMPTS_CONFIG or {"prompts": {}}
+    except (FileNotFoundError, yaml.YAMLError):
+        _PROMPTS_CONFIG = {"prompts": {}}
+        return _PROMPTS_CONFIG
+
+
+def render_prompt(template_name, **kwargs):
+    """Render a prompt template with the given placeholders."""
+    if _PROMPTS_CONFIG is None:
+        load_prompts_config()
+    prompts = _PROMPTS_CONFIG.get("prompts", {})
+    template = prompts.get(template_name, "")
+    for key, value in kwargs.items():
+        placeholder = f"<<{key}>>"
+        template = template.replace(placeholder, str(value))
+    return template.strip()
 # =================================================
 
 
@@ -201,9 +278,18 @@ def pre_filter_projects(all_projects, jd_text):
 
     # Sort by score descending
     scored_projects.sort(key=lambda x: x[0], reverse=True)
-    
+
     # Return top N projects (stripping the score)
-    return [p for s, p in scored_projects[:CANDIDATE_POOL_SIZE]]
+    result = [p for s, p in scored_projects[:CANDIDATE_POOL_SIZE]]
+    log_step(
+        "Project Pre-filter",
+        extra={
+            "total_projects": len(all_projects),
+            "candidates_count": len(result),
+            "candidate_names": [p.get("name") for p in result],
+        },
+    )
+    return result
 
 
 # ---------- AI GENERATORS ----------
@@ -213,28 +299,13 @@ def generate_professional_summary(profile, jd, archetypes):
     Generates a 3-4 sentence professional summary tailored to the JD.
     """
     basics = profile.get('basics', {})
-    current_role = basics.get('label', 'Professional')
-    
-    prompt = f"""
-        Write a generic but powerful Professional Summary (Profile) for a CV.
-        
-        MY ROLE: {current_role}
-        TARGET ARCHETYPES: {archetypes}
-        JOB DESCRIPTION HIGHLIGHTS: {jd[:800]}
-        
-        MY BACKGROUND SUMMARY:
-        {basics.get('summary', '')}
-        
-        INSTRUCTIONS:
-        1. Write exactly 3-4 lines.
-        2. Tone: Professional, confident, and tailored to the Job Description.
-        3. Do NOT use "I" or "My". Use implied first person (e.g., "Experienced Software Engineer with..." rather than "I am an experienced...").
-        4. Highlight the intersection of my experience and the job requirements.
-        5. Output plain text only. No headers.
-        6. Use ONLY the provided skills.
-        7. Do not hallucinate.
-        """
-    
+    prompt = render_prompt(
+        "professional_summary",
+        CURRENT_ROLE=basics.get('label', 'Professional'),
+        ARCHETYPES=archetypes,
+        JD_EXCERPT=jd[:800],
+        BACKGROUND_SUMMARY=basics.get('summary', ''),
+    )
     return generate(prompt, "Professional Summary")
 
 
@@ -244,26 +315,29 @@ def generate(prompt, label):
         response = ollama.chat(
             model=MODEL,
             messages=[{"role": "user", "content": prompt}],
-            options={'temperature': 0.2} # Low temp for strict adherence
+            options={'temperature': 0.2}  # Low temp for strict adherence
         )
-        return clean_ai_output(response["message"]["content"])
+        raw_content = response["message"]["content"]
+        cleaned_content = clean_ai_output(raw_content)
+        log_step(label, prompt=prompt, raw_output=raw_content, processed_output=cleaned_content)
+        return cleaned_content
     except Exception as e:
         print(f"⚠️ Error generating {label}: {e}")
+        if _logger:
+            _logger.exception(f"Error generating {label}: {e}")
         return ""
 
 def identify_archetypes(jd):
-    prompt = f"""
-        Analyze the Job Description and identify the top 3 relevant archetypes from this list:
-        {TASK_ARCHETYPES}
-        
-        Return ONLY a JSON object: {{ "archetypes": ["match1", "match2"] }}
-        
-        Job Description:
-        {jd[:1500]}
-        """
+    prompt = render_prompt(
+        "archetype_analysis",
+        TASK_ARCHETYPES=TASK_ARCHETYPES,
+        JD_EXCERPT=jd[:1500],
+    )
     raw = generate(prompt, "Archetype Analysis")
     data = extract_json_from_text(raw)
-    return data.get("archetypes", []) if data else []
+    archetypes = data.get("archetypes", []) if data else []
+    log_step("Archetype Parsing", processed_output=str(archetypes), extra={"parsed_json": str(data)})
+    return archetypes
 
 
 def clean_skills_output(text):
@@ -292,21 +366,11 @@ def generate_smart_soft_skills(profile, jd):
     if not soft_pool:
         return ""
 
-    prompt = f"""
-    Select the top 4 Soft Skills from the list below that are most relevant to this Job.
-    
-    JOB EXCERPT: {jd[:800]}
-    
-    MY SOFT SKILLS POOL:
-    {json.dumps(soft_pool)}
-    
-    INSTRUCTIONS:
-    1. Select exactly 3 or 4 skills that best fit the job description.
-    2. Format strictly as: **Soft Skills:** Skill 1, Skill 2, Skill 3
-    3. Do NOT invent new skills. Use ONLY the provided list.
-    4. Output ONLY the single formatted line.
-    """
-    
+    prompt = render_prompt(
+        "smart_soft_skills",
+        JD_EXCERPT=jd[:800],
+        SOFT_SKILLS_JSON=json.dumps(soft_pool),
+    )
     return generate(prompt, "Smart Soft Skills")
 
 
@@ -315,37 +379,17 @@ def generate_smart_skills(profile, jd, archetypes):
     Feeds ALL skills to the LLM and asks it to curate a specific list.
     """
     all_skills = flatten_skills(profile.get("skills_buckets", {}))
-    
-    prompt = f"""
-        Create a highly targeted 'Skills' section for a CV.
-
-        JOB CONTEXT:
-        Archetypes: {archetypes}
-        JD Excerpt: {jd[:1000]}
-
-        MY MASTER SKILL LIST:
-        {json.dumps(all_skills)}
-
-        INSTRUCTIONS:
-        1. Select ONLY the skills from my list that are relevant to this job.
-        2. Group them into 3–4 logical categories named specifically for this role.
-        3. Format: **Category Name:** Skill, Skill, Skill (repeat as reuired) \n
-        4. Use ONLY the provided skills.
-        5. Output MUST contain ONLY formatted skill lines.
-        6. Do NOT write explanations, notes, comments, or summaries.
-        7. Do NOT use "*", "-", or numbered lists.
-        8. Do NOT mention ATS, JD, or filtering.
-        9. If you add any text outside the format, the output is invalid.
-        10. Do NOT include a "Languages" category (I will add this manually).
-        11. AVOID REDUNDANCY: If a skill name is contained in the Category Name, 
-            OMIT the skill from the list. 
-            (Example: If Category is 'Data Analysis', do NOT list 'Data Analysis' inside it. 
-            Just list the tools like 'Pandas', 'Excel').
-        """
+    prompt = render_prompt(
+        "smart_skills",
+        ARCHETYPES=archetypes,
+        JD_EXCERPT=jd[:1000],
+        ALL_SKILLS_JSON=json.dumps(all_skills),
+    )
 
     # --- Safety Net: Clean Tech Skills Redundancy ---
     raw_ai_skills = generate(prompt, "Smart Skills Section")
     cleaned_tech_skills = clean_skills_output(raw_ai_skills)
+    log_step("Skills Post-process", raw_output=raw_ai_skills, processed_output=cleaned_tech_skills)
 
     final_tech_lines = []
     for line in cleaned_tech_skills.split('\n'):
@@ -390,7 +434,9 @@ def generate_smart_skills(profile, jd, archetypes):
     ]
     
     # Join with newlines and strip extra whitespace
-    return "\n".join([s for s in sections if s]).strip()
+    combined = "\n".join([s for s in sections if s]).strip()
+    log_step("Skills Final Combined", processed_output=combined)
+    return combined
 
 
 def generate_smart_projects(profile, jd, archetypes):
@@ -402,84 +448,40 @@ def generate_smart_projects(profile, jd, archetypes):
     print(f"    (Filtered {len(all_projects)} total projects down to {len(candidates)} candidates)")
 
     # 2. LLM Selection
-    prompt = f"""
-        Select the best {MAX_PROJECTS_TO_SHOW} projects from the candidates below.
-        
-        JOB CONTEXT: {jd[:1000]}
-        
-        CANDIDATE PROJECTS:
-        {yaml.dump(candidates)}
-        
-        INSTRUCTIONS:
-        1. Pick exactly {MAX_PROJECTS_TO_SHOW} projects.
-        2. Format strictly as:
-
-        **Project Name**, date (put name in bold) \n
-        - Bullet point
-        - Bullet point
-        - Bullet point (repeat as needed)
-        3. CRITICAL: DO NOT HALLUCINATE TOOLS. If a project used Python/C++, 
-        do NOT write that it used Power BI just because the Job Description asks for it.
-        4. Instead, highlight the *transferable skills* in sentences(
-        e.g., "Complex Data Handling", "Optimization", "Algorithm Design") if the specific tool doesn't match.
-        5. NO intro text.
-        6. Use "-" only.
-        8. Do not put the dat/year in quotations.
-        """
+    prompt = render_prompt(
+        "smart_projects",
+        MAX_PROJECTS=MAX_PROJECTS_TO_SHOW,
+        JD_EXCERPT=jd[:1000],
+        CANDIDATE_PROJECTS_YAML=yaml.dump(candidates),
+    )
     return generate(prompt, "Smart Projects Section")
 
 
 def generate_experience(profile, jd, archetypes):
-
-    prompt = f"""
-        Rewrite the EXPERIENCE section for a CV.
-
-        CONTEXT: {archetypes}
-        JD SUMMARY: {jd[:600]}
-
-        EXPERIENCE:
-        {yaml.dump(profile['experience'])}
-
-        INSTRUCTIONS:
-        1. Output plain text.
-        2. One role per block.
-        3. Format strictly as:
-
-        **Role**, Company, Location, Date
-        Start Date – End Date
-        - Bullet point
-        - Bullet point
-        - Bullet point (repeat as needed)
-        4. No markdown headers.
-        5. Use "-" only.
-        6. If required, add upto 5 points.
-        7. Make sure all the points are ATS friendly and compliant.
-        """
-
-    text = generate(prompt, "Experience Section")
-    text = enforce_bullet_limit(text, MAX_BULLETS_PER_ROLE)
-
+    prompt = render_prompt(
+        "experience",
+        ARCHETYPES=archetypes,
+        JD_EXCERPT=jd[:600],
+        EXPERIENCE_YAML=yaml.dump(profile['experience']),
+    )
+    raw_experience = generate(prompt, "Experience Section")
+    text = enforce_bullet_limit(raw_experience, MAX_BULLETS_PER_ROLE)
+    log_step("Experience Bullet Limit", raw_output=raw_experience, processed_output=text)
     return text
 
 
 def generate_cover_letter(profile, jd, archetypes):
-    prompt = f"""
-        Write a German-market style Cover Letter BODY.
-        
-        JOB: {jd[:800]}
-        ARCHETYPES: {archetypes}
-        
-        CANDIDATE:
-        Name: {profile['basics']['name']}
-        Current: {profile['basics']['label']}
-        Motivation: {profile['cover_letter_preferences'].get('career_goals')}
-        
-        INSTRUCTIONS:
-        1. Three paragraphs (Motivation, Experience Proof, Closing).
-        2. Tone: Professional, direct, enthusiastic.
-        3. Highlight specific overlap between my profile and the job.
-        4. No placeholders.
-        """
+    career_goals = profile.get('cover_letter_preferences', {}) or {}
+    goals = career_goals.get('career_goals')
+    goals_str = goals if isinstance(goals, str) else (", ".join(goals) if goals else "")
+    prompt = render_prompt(
+        "cover_letter",
+        JD_EXCERPT=jd[:800],
+        ARCHETYPES=archetypes,
+        CANDIDATE_NAME=profile['basics']['name'],
+        CANDIDATE_LABEL=profile['basics']['label'],
+        CAREER_GOALS=goals_str,
+    )
     return generate(prompt, "Cover Letter")
 
 def generate_smart_education(profile, jd, archetypes):
@@ -488,30 +490,12 @@ def generate_smart_education(profile, jd, archetypes):
     if not education:
         return ""
 
-    prompt = f"""
-        Create a targeted EDUCATION section for a CV.
-
-        JOB CONTEXT:
-        Archetypes: {archetypes}
-        JD Excerpt: {jd[:800]}
-
-        EDUCATION DATA:
-        {yaml.dump(education)}
-
-        INSTRUCTIONS:
-        1. Keep each degree.
-        2. Under each degree, select ONLY the 2-4 most relevant courses.
-        3. Format strictly as:
-
-        **Degree** — Institution, Dates \n
-        - Relevant Coursework: Course 1, Course 2 (repeat as needed)
-        4. Do NOT invent courses.
-        5. No explanations.
-        6. Keep it concise.
-        7. Do not give any headings, such as 'EDUCATION'
-        8. Bold only the degree name, not the instituition and dates
-        """
-
+    prompt = render_prompt(
+        "education",
+        ARCHETYPES=archetypes,
+        JD_EXCERPT=jd[:800],
+        EDUCATION_YAML=yaml.dump(education),
+    )
     return generate(prompt, "Smart Education Section")
 
 def generate_smart_certifications(profile, jd, archetypes):
@@ -520,30 +504,12 @@ def generate_smart_certifications(profile, jd, archetypes):
     if not certs:
         return ""
 
-    prompt = f"""
-        Create a targeted CERTIFICATIONS section for a CV.
-
-        JOB CONTEXT:
-        Archetypes: {archetypes}
-        JD Excerpt: {jd[:800]}
-
-        MY CERTIFICATIONS:
-        {yaml.dump(certs)}
-
-
-        INSTRUCTIONS:
-        1. Select ONLY the 2–4 most relevant certifications.
-        2. If fewer are relevant, select fewer.
-        3. Output ONLY bullet points.
-        4. Format strictly as:
-
-        - Certification Name — Issuer (Year) \n
-
-        5. Do NOT write any headers or labels.
-        6. Do NOT invent certifications.
-        7. No explanations.
-        """
-
+    prompt = render_prompt(
+        "certifications",
+        ARCHETYPES=archetypes,
+        JD_EXCERPT=jd[:800],
+        CERTIFICATIONS_YAML=yaml.dump(certs),
+    )
     return generate(prompt, "Smart Certifications Section")
 
 def convert_md_to_pdf(md_file, pdf_file):
@@ -569,10 +535,12 @@ def convert_md_to_pdf(md_file, pdf_file):
 
         print("Pandoc output:", output)
         print(f"✅ PDF created: {pdf_file}")
+        log_step("CV PDF Conversion", extra={"input": md_file, "output": pdf_file, "status": "success"})
 
     except Exception as e:
         print("❌ PDF conversion failed:")
         print("Error:", e)
+        log_step("CV PDF Conversion", extra={"input": md_file, "output": pdf_file, "status": "failed", "error": str(e)})
 
 
 def normalize_spacing(text):
@@ -606,17 +574,21 @@ def convert_cover_letter_to_pdf(md_file, pdf_file):
         )
 
         print(f"✅ Cover Letter PDF created: {pdf_file}")
+        log_step("Cover Letter PDF Conversion", extra={"input": md_file, "output": pdf_file, "status": "success"})
 
     except Exception as e:
         print("❌ Cover Letter PDF conversion failed:")
         print("Error:", e)
+        log_step("Cover Letter PDF Conversion", extra={"input": md_file, "output": pdf_file, "status": "failed", "error": str(e)})
 
 
 # ---------- MAIN EXECUTION ----------
 
 if __name__ == "__main__":
+    setup_logging()
+    load_prompts_config()
     check_ollama_connection()
-    
+
     DOCS_DIR = "docs"
     os.makedirs(DOCS_DIR, exist_ok=True)
 
@@ -624,6 +596,10 @@ if __name__ == "__main__":
     profile = load_yaml(PROFILE_PATH)
     template_str = load_file(TEMPLATE_PATH)
 
+    log_step("Startup", extra={
+        "profile_basics": str(profile.get("basics", {})),
+        "profile_keys": list(profile.keys()),
+    })
 
     # Escape LaTeX-sensitive fields (IMPORTANT)
     escaped_basics = {
@@ -658,9 +634,17 @@ if __name__ == "__main__":
 
     jd_text = "\n".join(lines)
 
+    log_step("User Input", extra={
+        "company": company_input,
+        "company_safe": company_safe,
+        "jd_length": len(jd_text),
+        "jd_text": jd_text,
+    })
+
     # 1. Analyze
     archetypes = identify_archetypes(jd_text)
     print(f"\n🔎 Identified Archetypes: {archetypes}\n")
+    log_step("Archetypes Final", processed_output=str(archetypes))
 
     # 2. Generate Content
     summary_md = normalize_spacing(generate_professional_summary(profile, jd_text, archetypes))
@@ -688,6 +672,17 @@ if __name__ == "__main__":
         projects_placeholder=projects_md,
         experience_placeholder=experience_md
     )
+
+    log_step("Final Placeholders (pre-render)", extra={
+        "summary_preview": (summary_md[:300] + "...") if len(summary_md) > 300 else summary_md,
+        "education_preview": (education_md[:300] + "...") if len(education_md) > 300 else education_md,
+        "skills_preview": (skills_md[:300] + "...") if len(skills_md) > 300 else skills_md,
+        "projects_preview": (projects_md[:300] + "...") if len(projects_md) > 300 else projects_md,
+        "experience_preview": (experience_md[:300] + "...") if len(experience_md) > 300 else experience_md,
+        "cover_letter_preview": (cover_letter_md[:300] + "...") if len(cover_letter_md) > 300 else cover_letter_md,
+    })
+    log_step("Final CV Markdown", processed_output=final_cv[:1500] + ("..." if len(final_cv) > 1500 else ""))
+    log_step("Final Cover Letter Markdown", processed_output=cover_letter_md)
 
     # 4. Render LaTeX Template (Jinja → LaTeX)
     latex_template_str = load_file("resume_template.tex")
@@ -726,4 +721,6 @@ if __name__ == "__main__":
     print(f"📄 CV: {cv_filename}")
     print(f"📄 CV (PDF): {pdf_filename}")
     print(f"✉️  Cover Letter: {cl_filename}")
+    if DEBUG:
+        print(f"📋 Debug log: {LOG_DIR}/run_*.log")
     print("=" * 50)
