@@ -7,4 +7,5 @@ docs/*.pdf
 docs/*.md
 .DS_Store
 resume_rendered.tex
+resume_rendered_pdflatex.tex
 debug_logs/

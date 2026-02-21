@@ -27,10 +27,11 @@ generates professional documents in **Markdown and PDF format** using
     │
     ├── main.py
     ├── profile.yaml
-    ├── prompts.yaml          # LLM prompt templates (edit to customize)
+    ├── prompts.yaml              # LLM prompt templates (edit to customize)
     ├── template_cv.md
-    ├── template_cover_letter.md
-    ├── resume_template.tex
+    ├── resume_template.tex       # XeLaTeX (primary)
+    ├── resume_template_pdflatex.tex   # pdflatex fallback
+    ├── test_pdf_generation.py    # PDF-only test (no LLM)
     ├── requirements.txt
     ├── README.md
     │
@@ -53,7 +54,25 @@ generates professional documents in **Markdown and PDF format** using
 
 ### 3️⃣ Pandoc
 
-### 4️⃣ LaTeX (TeX Live / MacTeX)
+### 4️⃣ LaTeX (BasicTeX or MacTeX)
+
+PDF generation uses **XeLaTeX** by default. If XeLaTeX is not found, **pdflatex** is used automatically.
+
+BasicTeX (minimal, ~100 MB):
+    brew install --cask basictex
+    # After install, RESTART your terminal (or Cursor) so PATH is updated.
+    # Or run: eval "$(/usr/libexec/path_helper -s)"
+
+MacTeX (full, ~4 GB): `brew install --cask mactex`
+
+**Troubleshooting (PDF fails):**
+
+1. Restart terminal after installing BasicTeX so PATH updates.
+2. Find TeX location and set TEXBIN:
+        find /usr/local/texlive /Library/TeX -name xelatex -type f 2>/dev/null
+        export TEXBIN=/usr/local/texlive/2024/bin/universal-darwin
+3. Test PDF generation without running the full LLM flow:
+        python test_pdf_generation.py
 
 ------------------------------------------------------------------------
 
@@ -67,6 +86,16 @@ Example `requirements.txt`:
     ollama
     jinja2
     pypandoc
+
+------------------------------------------------------------------------
+
+## 🧪 Testing PDF Generation
+
+Test PDF conversion without running the full LLM pipeline:
+
+    python test_pdf_generation.py
+
+Uses sample files in docs/ or creates minimal samples. Requires xelatex or pdflatex in PATH. Enable debug logs with `CV_DEBUG=1`.
 
 ------------------------------------------------------------------------
 
@@ -88,12 +117,12 @@ Generated files will be saved in /docs.
 
 ## 🔍 Workflow
 
-1.  Load structured profile from profile.yaml\
-2.  Analyze job description via LLM\
-3.  Identify relevant skills and experience\
-4.  Generate tailored summary and content\
-5.  Render Markdown via Jinja2\
-6.  Convert Markdown → PDF using Pandoc + LaTeX\
+1.  Load structured profile from profile.yaml
+2.  Analyze job description via LLM
+3.  Identify relevant skills and experience
+4.  Generate tailored summary and content
+5.  Render Markdown via Jinja2
+6.  Convert Markdown → PDF using Pandoc + XeLaTeX (or pdflatex fallback)
 7.  Save output to /docs
 
 ------------------------------------------------------------------------

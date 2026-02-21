@@ -4,11 +4,62 @@ import os
 import sys
 import json
 import re
+import glob
 import logging
+import shutil
 from jinja2 import Template
 from datetime import date, datetime
 import pypandoc
 import unicodedata
+
+
+def ensure_tex_in_path():
+    """Add TeX bin to PATH if xelatex/pdflatex not found. Supports MacTeX and BasicTeX on macOS."""
+    # Allow user override: export TEXBIN=/path/to/texlive/.../bin/universal-darwin
+    texbin = os.environ.get("TEXBIN")
+    if texbin and os.path.isdir(texbin):
+        os.environ["PATH"] = texbin + os.pathsep + os.environ.get("PATH", "")
+    if shutil.which("xelatex") or shutil.which("pdflatex"):
+        return
+    # Refresh PATH from macOS path_helper (loads /etc/paths.d/ including TeX)
+    try:
+        import subprocess
+        result = subprocess.run(
+            ["/usr/libexec/path_helper", "-s"],
+            capture_output=True, text=True, timeout=2
+        )
+        if result.returncode == 0 and "PATH=" in result.stdout:
+            for part in result.stdout.strip().split(";"):
+                part = part.strip()
+                if part.startswith("PATH="):
+                    path_val = part.split("=", 1)[1].strip().strip('"')
+                    os.environ["PATH"] = path_val
+                    break
+    except Exception:
+        pass
+    if shutil.which("xelatex") or shutil.which("pdflatex"):
+        return
+    candidates = [
+        "/Library/TeX/texbin",  # MacTeX / BasicTeX (Homebrew)
+        "/usr/local/texlive/2025/bin/universal-darwin",
+        "/usr/local/texlive/2025/bin/arm64-darwin",
+        "/usr/local/texlive/2025/bin/x86_64-darwin",
+        "/usr/local/texlive/2024/bin/universal-darwin",
+        "/usr/local/texlive/2024/bin/arm64-darwin",
+        "/usr/local/texlive/2024/bin/x86_64-darwin",
+        "/usr/local/texlive/2024basic/bin/universal-darwin",
+        "/usr/local/texlive/2024basic/bin/arm64-darwin",
+        "/usr/local/texlive/2024basic/bin/x86_64-darwin",
+    ]
+    for pattern in ["/usr/local/texlive/*/bin/*-darwin", "/usr/local/texlive/*/bin/universal-darwin"]:
+        candidates.extend(glob.glob(pattern))
+    for path in candidates:
+        if path and os.path.isdir(path):
+            xelatex_path = os.path.join(path, "xelatex")
+            pdflatex_path = os.path.join(path, "pdflatex")
+            if os.path.isfile(xelatex_path) or os.path.isfile(pdflatex_path):
+                os.environ["PATH"] = path + os.pathsep + os.environ.get("PATH", "")
+                return
 
 # ---------- LOGGING ----------
 LOG_DIR = "debug_logs"
@@ -517,18 +568,40 @@ def convert_md_to_pdf(md_file, pdf_file):
     print("🔧 Generating PDF...")
 
     try:
-        os.environ["PATH"] += os.pathsep + "/Library/TeX/texbin"
+        ensure_tex_in_path()
+        use_xelatex = shutil.which("xelatex")
+        use_pdflatex = shutil.which("pdflatex")
+        if not use_xelatex and not use_pdflatex:
+            raise RuntimeError(
+                "Neither xelatex nor pdflatex found. Install BasicTeX: brew install --cask basictex\n"
+                "Then restart the terminal or run: eval \"$(/usr/libexec/path_helper -s)\""
+            )
 
-        template_path = os.path.abspath("resume_template.tex")
-        print("📄 Using template:", template_path)
+        if use_xelatex:
+            engine, template = "xelatex", "resume_rendered.tex"
+            print("📄 Using XeLaTeX with resume_rendered.tex")
+        else:
+            # pdflatex fallback: render pdflatex-compatible template
+            from jinja2 import Template as JinjaTemplate
+            profile = load_yaml(PROFILE_PATH)
+            escaped_basics = {
+                k: latex_escape(v) if isinstance(v, str) else v
+                for k, v in profile["basics"].items()
+            }
+            pdflatex_template_str = load_file("resume_template_pdflatex.tex")
+            rendered = JinjaTemplate(pdflatex_template_str).render(basics=escaped_basics)
+            with open("resume_rendered_pdflatex.tex", "w", encoding="utf-8") as f:
+                f.write(rendered)
+            engine, template = "pdflatex", "resume_rendered_pdflatex.tex"
+            print("📄 Using pdflatex fallback (resume_rendered_pdflatex.tex)")
 
         output = pypandoc.convert_file(
             md_file,
             "pdf",
             outputfile=pdf_file,
             extra_args=[
-                "--pdf-engine=xelatex",
-                "--template=resume_rendered.tex",
+                f"--pdf-engine={engine}",
+                f"--template={template}",
                 "--wrap=preserve"
             ]
         )
@@ -561,14 +634,21 @@ def convert_cover_letter_to_pdf(md_file, pdf_file):
     print("🔧 Generating Cover Letter PDF...")
 
     try:
-        os.environ["PATH"] += os.pathsep + "/Library/TeX/texbin"
+        ensure_tex_in_path()
+        engine = "xelatex" if shutil.which("xelatex") else ("pdflatex" if shutil.which("pdflatex") else None)
+        if not engine:
+            raise RuntimeError(
+                "Neither xelatex nor pdflatex found. Install BasicTeX: brew install --cask basictex"
+            )
+        if engine == "pdflatex":
+            print("📄 Using pdflatex for cover letter")
 
         output = pypandoc.convert_file(
             md_file,
             "pdf",
             outputfile=pdf_file,
             extra_args=[
-                "--pdf-engine=xelatex",
+                f"--pdf-engine={engine}",
                 "--wrap=preserve"
             ]
         )

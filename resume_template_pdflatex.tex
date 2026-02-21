@@ -5,11 +5,8 @@
 \usepackage{enumitem}
 \usepackage[hidelinks]{hyperref}
 \usepackage[T1]{fontenc}
-
-% Unicode fonts (XeLaTeX)
-\usepackage{fontspec}
-\setmainfont{Helvetica}
-
+\usepackage{helvet}
+\renewcommand{\familydefault}{\sfdefault}
 \usepackage{xcolor}
 
 % Section style
@@ -29,17 +26,8 @@
 
 % Pandoc tightlist fix
 \providecommand{\tightlist}{}
-% Header variables (Pandoc metadata)
-$if(name)$
-\def\cvname{$name$}
-\def\cvlabel{$label$}
-\def\cvlocation{$location$}
-\def\cvphone{$phone$}
-\def\cvemail{$email$}
-\def\cvlinkedin{$linkedin$}
-$endif$
 
-% Header (no fontawesome5 - BasicTeX compatible)
+% Header (pdflatex compatible - no fontspec)
 \newcommand{\cvheader}[6]{
 \begin{center}
 {\Huge\bfseries #1}\\[4pt]
