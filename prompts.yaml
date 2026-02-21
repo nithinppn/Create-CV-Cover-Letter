@@ -19,16 +19,24 @@ task_archetypes:
 prompts:
   # Placeholders: <<TASK_ARCHETYPES>>, <<JD_EXCERPT>> (1500 chars)
   archetype_analysis: |
+    You are a job-description analyst.
+
     Analyze the Job Description and identify the top 3 relevant archetypes from this list:
     <<TASK_ARCHETYPES>>
 
-    Return ONLY a JSON object: { "archetypes": ["match1", "match2"] }
+    Choose ONLY from the exact archetype names in the list above. Do not invent archetypes or use synonyms.
+    Return exactly 3 archetypes, ordered by relevance (most relevant first).
+    Return ONLY a JSON object: { "archetypes": ["archetype1", "archetype2", "archetype3"] }
 
     Job Description:
     <<JD_EXCERPT>>
 
+    Output only the JSON. No preamble, meta-commentary, or explanations.
+
   # Placeholders: <<CURRENT_ROLE>>, <<ARCHETYPES>>, <<JD_EXCERPT>> (800 chars), <<BACKGROUND_SUMMARY>>
   professional_summary: |
+    You are a professional CV writer.
+
     Write a generic but powerful Professional Summary (Profile) for a CV.
 
     MY ROLE: <<CURRENT_ROLE>>
@@ -41,15 +49,19 @@ prompts:
     INSTRUCTIONS:
     1. Write exactly 3-4 lines.
     2. Tone: Professional, confident, and tailored to the Job Description.
-    3. Do NOT use "I" or "My". Use implied first person (e.g., "Experienced Software Engineer with..." rather than "I am an experienced...").
-    4. Highlight the intersection of my experience and the job requirements.
-    5. Output plain text only. No headers.
-    6. Use ONLY the provided skills.
-    7. Do not hallucinate.
+    3. Write in third person (e.g. "Experienced Engineer with..." NOT "I am..." or "My experience...").
+    4. Base content ONLY on MY ROLE and MY BACKGROUND SUMMARY. Do not invent skills, tools, or achievements.
+    5. Mention only experience, skills, or achievements that appear in the context above.
+    6. If MY BACKGROUND SUMMARY is empty, emphasize MY ROLE and alignment with the job.
+    7. Highlight the intersection of my experience and the job requirements.
+    8. Output plain text only. No headers, meta-commentary, or preamble.
+    9. Use standard UTF-8. Avoid emoji and decorative symbols.
 
   # Placeholders: <<JD_EXCERPT>> (800 chars), <<SOFT_SKILLS_JSON>>
   smart_soft_skills: |
-    Select the top 4 Soft Skills from the list below that are most relevant to this Job.
+    You are selecting soft skills for an ATS-friendly CV.
+
+    Select exactly 3 or 4 skills from the list below that best fit this Job.
 
     JOB EXCERPT: <<JD_EXCERPT>>
 
@@ -60,7 +72,8 @@ prompts:
     1. Select exactly 3 or 4 skills that best fit the job description.
     2. Format strictly as: **Soft Skills:** Skill 1, Skill 2, Skill 3
     3. Do NOT invent new skills. Use ONLY the provided list.
-    4. Output ONLY the single formatted line.
+    4. Output ONLY the formatted line. No preamble.
+    5. Do not invent or assume information. Use only what is provided.
 
   # Placeholders: <<ARCHETYPES>>, <<JD_EXCERPT>> (1000 chars), <<ALL_SKILLS_JSON>>
   smart_skills: |
@@ -75,19 +88,18 @@ prompts:
 
     INSTRUCTIONS:
     1. Select ONLY the skills from my list that are relevant to this job.
-    2. Group them into 3–4 logical categories named specifically for this role.
-    3. Format: **Category Name:** Skill, Skill, Skill (repeat as required)
-    4. Use ONLY the provided skills.
-    5. Output MUST contain ONLY formatted skill lines.
-    6. Do NOT write explanations, notes, comments, or summaries.
-    7. Do NOT use "*", "-", or numbered lists.
-    8. Do NOT mention ATS, JD, or filtering.
-    9. If you add any text outside the format, the output is invalid.
-    10. Do NOT include a "Languages" category (I will add this manually).
-    11. AVOID REDUNDANCY: If a skill name is contained in the Category Name,
-        OMIT the skill from the list.
-        (Example: If Category is 'Data Analysis', do NOT list 'Data Analysis' inside it.
-        Just list the tools like 'Pandas', 'Excel').
+    2. If no skills clearly match the job, choose 5–8 most foundational from the list.
+    3. Group them into 3–4 logical categories named specifically for this role.
+    4. Format: Use **Bold** for category names. Do not use bullet lists (* or - for list items).
+       Format: **Category Name:** Skill, Skill, Skill (repeat as required)
+    5. Use ONLY the provided skills. Do not invent or assume information.
+    6. Output MUST contain ONLY formatted skill lines. No explanations, notes, or summaries.
+    7. Do NOT mention ATS, JD, or filtering.
+    8. Do NOT include a "Languages" category (I will add this manually).
+    9. AVOID REDUNDANCY: If a skill name is contained in the Category Name, OMIT the skill.
+       (Example: If Category is 'Data Analysis', do NOT list 'Data Analysis' inside it.
+       Just list the tools like 'Pandas', 'Excel').
+    10. Output only the requested content. No preamble or meta-commentary.
 
   # Placeholders: <<MAX_PROJECTS>>, <<JD_EXCERPT>> (1000 chars), <<CANDIDATE_PROJECTS_YAML>>
   smart_projects: |
@@ -107,17 +119,16 @@ prompts:
     - Bullet point
     - Bullet point
     - Bullet point (repeat as needed)
-    3. CRITICAL: DO NOT HALLUCINATE TOOLS. If a project used Python/C++,
-    do NOT write that it used Power BI just because the Job Description asks for it.
-    4. Instead, highlight the *transferable skills* in sentences
-    (e.g., "Complex Data Handling", "Optimization", "Algorithm Design") if the specific tool doesn't match.
-    5. NO intro text.
-    6. Use "-" only.
+    3. CRITICAL: Stay factual. Rephrase or reorder only. Do not add tools, outcomes, or metrics not in the source.
+    4. DO NOT HALLUCINATE TOOLS. If a project used Python/C++, do NOT write Power BI just because the JD asks for it.
+    5. Instead, highlight transferable skills (e.g. "Complex Data Handling", "Optimization") if the tool doesn't match.
+    6. Output only the formatted projects. No intro sentence. Use "-" for bullets only.
     7. Do not put the date/year in quotations.
+    8. Do not invent or assume information. Use only what is provided.
 
   # Placeholders: <<ARCHETYPES>>, <<JD_EXCERPT>> (600 chars), <<EXPERIENCE_YAML>>
   experience: |
-    Rewrite the EXPERIENCE section for a CV.
+    You are rewriting experience for an ATS-optimized CV.
 
     CONTEXT: <<ARCHETYPES>>
     JD SUMMARY: <<JD_EXCERPT>>
@@ -126,23 +137,24 @@ prompts:
     <<EXPERIENCE_YAML>>
 
     INSTRUCTIONS:
-    1. Output plain text.
-    2. One role per block.
-    3. Format strictly as:
+    1. Output plain text. One role per block.
+    2. Format strictly as:
 
     **Role**, Company, Location, Date
     Start Date – End Date
     - Bullet point
     - Bullet point
     - Bullet point (repeat as needed)
-    4. No markdown headers.
-    5. Use "-" only.
-    6. If required, add up to 5 points.
-    7. Make sure all the points are ATS friendly and compliant.
+    3. Use up to 5 bullet points per role. Prioritize points that align with the job description.
+    4. Start each bullet with a strong action verb (e.g. Led, Developed, Implemented). Include metrics (%, numbers) where available.
+    5. No markdown headers. Use "-" only. ATS-friendly and compliant.
+    6. Do not invent or assume information. Use only what is provided.
 
   # Placeholders: <<JD_EXCERPT>> (800 chars), <<ARCHETYPES>>, <<CANDIDATE_NAME>>, <<CANDIDATE_LABEL>>, <<CAREER_GOALS>>
   cover_letter: |
-    Write a German-market style Cover Letter BODY.
+    You are writing a cover letter body for a German job application.
+    Write in formal German business style. Use German language.
+    Write in first person (I, my, me). Length: 200–300 words.
 
     JOB: <<JD_EXCERPT>>
     ARCHETYPES: <<ARCHETYPES>>
@@ -155,8 +167,9 @@ prompts:
     INSTRUCTIONS:
     1. Three paragraphs (Motivation, Experience Proof, Closing).
     2. Tone: Professional, direct, enthusiastic.
-    3. Highlight specific overlap between my profile and the job.
-    4. No placeholders.
+    3. If CAREER_GOALS is empty, focus on fit with the role and motivation to join the company.
+    4. Highlight specific overlap between my profile and the job.
+    5. No placeholders. Output only the letter body. No preamble.
 
   # Placeholders: <<ARCHETYPES>>, <<JD_EXCERPT>> (800 chars), <<EDUCATION_YAML>>
   education: |
@@ -172,16 +185,16 @@ prompts:
     INSTRUCTIONS:
     1. Keep each degree.
     2. Under each degree, select ONLY the 2-4 most relevant courses.
-    3. Format strictly as:
+    3. If a degree has no courses listed, omit the coursework line for that degree.
+    4. Format strictly as:
 
     **Degree** — Institution, Dates
 
     - Relevant Coursework: Course 1, Course 2 (repeat as needed)
-    4. Do NOT invent courses.
-    5. No explanations.
-    6. Keep it concise.
-    7. Do not give any headings, such as 'EDUCATION'
-    8. Bold only the degree name, not the institution and dates
+    5. Do NOT invent courses. No explanations. Keep it concise.
+    6. Do not give any headings, such as 'EDUCATION'.
+    7. Bold only the degree name, not the institution and dates.
+    8. Output only the requested content. No preamble.
 
   # Placeholders: <<ARCHETYPES>>, <<JD_EXCERPT>> (800 chars), <<CERTIFICATIONS_YAML>>
   certifications: |
@@ -196,12 +209,10 @@ prompts:
 
     INSTRUCTIONS:
     1. Select ONLY the 2–4 most relevant certifications.
-    2. If fewer are relevant, select fewer.
-    3. Output ONLY bullet points.
-    4. Format strictly as:
+    2. If fewer are relevant, select fewer. If none are relevant, output nothing (empty).
+    3. Output ONLY bullet points. Format strictly as:
 
     - Certification Name — Issuer (Year)
 
-    5. Do NOT write any headers or labels.
-    6. Do NOT invent certifications.
-    7. No explanations.
+    4. Do NOT write any headers or labels. Do NOT invent certifications.
+    5. No explanations. Output only the requested content. No preamble.
