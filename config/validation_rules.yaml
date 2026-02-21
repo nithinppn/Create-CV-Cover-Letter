@@ -1,0 +1,52 @@
+# Validation rules for CV section format validation
+# Used by tools/validators/format.py
+
+# Max retries per section before accepting output
+max_retries: 2
+
+# Professional Summary rules
+professional_summary:
+  min_lines: 3
+  max_lines: 6
+  max_sentences: 5
+  forbidden_patterns:
+    - "^#{1,6}\\s"
+    - "\\bI\\b"
+    - "\\bMy\\b"
+    - "Follow Up Question"
+    - "---\\s*$"
+  required_third_person: true
+
+# Education format: **Degree** — Institution, Dates + - Relevant Coursework:
+education:
+  degree_line_pattern: "\\*\\*[^*]+\\*\\*\\s*[—–-]\\s*[^\\n]+"
+  coursework_pattern: "-\\s*Relevant Coursework:"
+
+# Skills format: **Category:** skill, skill
+skills:
+  category_line_pattern: "\\*\\*[^*]+\\*\\*:\\s*[^\\n]+"
+
+# Projects: per-project blocks with **Name**, date and - bullets
+projects:
+  project_header_pattern: "\\*\\*[^*]+\\*\\*,?\\s*(?:date:?\\s*)?['\"]?\\d{4}[\\-\\d]*['\"]?"
+  bullet_pattern: "^-\\s+.+"
+  min_projects: 1
+  max_bullets_per_project: 6
+
+# Experience: **Role**, Company + date + bullets
+experience:
+  role_header_pattern: "\\*\\*[^*]+\\*\\*"
+  bullet_pattern: "^-\\s+.+"
+  max_bullets_per_role: 5
+
+# Certifications: - Name — Issuer (Year)
+certifications:
+  bullet_pattern: "^-\\s+[^\\n]+\\s*[—–-]\\s*[^\\n]+\\([^)]+\\)"
+
+# Cover Letter
+cover_letter:
+  min_words: 180
+  max_words: 350
+  min_paragraphs: 2
+  max_paragraphs: 5
+  required_first_person: true
