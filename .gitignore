@@ -9,3 +9,4 @@ docs/*.md
 resume_rendered.tex
 resume_rendered_pdflatex.tex
 debug_logs/
+job_input.yaml

@@ -153,6 +153,8 @@ MODEL = "phi3:latest"  # Using Phi-3 (ollama pull phi3)
 PROFILE_PATH = "profile.yaml"
 TEMPLATE_PATH = "template_cv.md"
 PROMPTS_PATH = "prompts.yaml"
+JOB_INPUT_FILE = "job_input.yaml"
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # CV Constraints
 MAX_PROJECTS_TO_SHOW = 3      # The AI will pick the best N projects
@@ -235,8 +237,18 @@ def load_file(path):
         print(f"❌ Error: File not found: {path}")
         sys.exit(1)
 
+def fix_unicode_escapes(text):
+    """Convert Python-style \\xNN and \\uNNNN escapes in LLM output to actual Unicode."""
+    if not text:
+        return text
+    text = re.sub(r'\\x([0-9A-Fa-f]{2})', lambda m: chr(int(m.group(1), 16)), text)
+    text = re.sub(r'\\u([0-9A-Fa-f]{4})', lambda m: chr(int(m.group(1), 16)), text)
+    return text
+
+
 def clean_ai_output(text):
     """Removes code blocks and conversational filler from LLM output."""
+    text = fix_unicode_escapes(text)
     # Remove markdown code fences
     text = re.sub(r'```[a-zA-Z]*', '', text)
     text = text.replace('```', '')
@@ -687,32 +699,51 @@ if __name__ == "__main__":
         for k, v in profile["basics"].items()
     }
 
-    print("\n" + "=" * 50)
-    print("🏢 ENTER COMPANY NAME")
-    print("=" * 50)
-    company_input = input("Target Company: ").strip()
-    
-    # Sanitize company name for filename (remove spaces/special chars)
+    # Resolve input file path (script dir or cwd)
+    input_path = os.path.join(SCRIPT_DIR, JOB_INPUT_FILE)
+    if not os.path.exists(input_path):
+        input_path = JOB_INPUT_FILE
+    # Support --input / -i
+    if len(sys.argv) > 1 and sys.argv[1] in ("--input", "-i") and len(sys.argv) > 2:
+        input_path = sys.argv[2]
+        if not os.path.isabs(input_path):
+            input_path = os.path.join(SCRIPT_DIR, input_path)
+
+    # Read input: from file if present, else interactive
+    if os.path.exists(input_path):
+        if not (input_path.endswith(".yaml") or input_path.endswith(".yml")):
+            print(f"❌ Input file must be YAML (.yaml or .yml): {input_path}")
+            sys.exit(1)
+        data = load_yaml(input_path)
+        company_input = (data.get("company") or "").strip() or "General"
+        jd_text = (data.get("job_description") or "").strip()
+        print(f"📂 Read input from {input_path}")
+        print(f"   Company: {company_input}")
+        print(f"   JD length: {len(jd_text)} chars")
+    else:
+        print("\n" + "=" * 50)
+        print("🏢 ENTER COMPANY NAME (or create job_input.yaml - see job_input.example.yaml)")
+        print("=" * 50)
+        company_input = input("Target Company: ").strip()
+        if not company_input:
+            company_input = "General"
+        print("\n" + "=" * 50)
+        print("📋 PASTE JOB DESCRIPTION (Type 'DONE' to finish)")
+        print("=" * 50)
+        lines = []
+        while True:
+            try:
+                line = input()
+                if line.strip() == "DONE":
+                    break
+                lines.append(line)
+            except EOFError:
+                break
+        jd_text = "\n".join(lines)
+
     company_safe = re.sub(r'[^a-zA-Z0-9_-]', '', company_input.replace(' ', '_'))
     if not company_safe:
         company_safe = "General"
-    
-    # Get Job Description
-    print("\n" + "=" * 50)
-    print("📋 PASTE JOB DESCRIPTION (Type 'DONE' to finish)")
-    print("=" * 50)
-    
-    lines = []
-    while True:
-        try:
-            line = input()
-            if line.strip() == "DONE":
-                break
-            lines.append(line)
-        except EOFError:
-            break
-
-    jd_text = "\n".join(lines)
 
     log_step("User Input", extra={
         "company": company_input,

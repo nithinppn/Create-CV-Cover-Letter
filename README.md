@@ -32,6 +32,7 @@ generates professional documents in **Markdown and PDF format** using
     ├── resume_template.tex       # XeLaTeX (primary)
     ├── resume_template_pdflatex.tex   # pdflatex fallback
     ├── test_pdf_generation.py    # PDF-only test (no LLM)
+    ├── job_input.example.yaml    # Template for job_input.yaml
     ├── requirements.txt
     ├── README.md
     │
@@ -105,11 +106,20 @@ Start Ollama:
 
     ollama serve
 
-Run the generator:
+**Option A – Input from file (recommended):**
+
+    cp job_input.example.yaml job_input.yaml
+    # Edit job_input.yaml: set company and job_description (use | for multiline JD)
+    python main.py
+
+    # Or specify a different file:
+    python main.py -i my_job.yaml
+
+**Option B – Interactive:**
 
     python main.py
 
-Enter: - Company name - Paste job description - Type DONE when finished
+Enter company name and paste job description (type DONE when finished).
 
 Generated files will be saved in /docs.
 

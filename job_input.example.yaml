@@ -1,0 +1,12 @@
+# Job input for CV & Cover Letter generator
+# 1. Copy:  cp job_input.example.yaml job_input.yaml
+# 2. Edit job_input.yaml: set company and paste job description under job_description: |
+# 3. Run:  python main.py
+# The | keeps line breaks in the JD.
+# ------------------------------------------------------------------------------
+
+company: Company Name
+
+job_description: |
+  Paste the full job description below.
+  Use the pipe (|) so line breaks and paragraphs are preserved.

@@ -152,8 +152,8 @@ prompts:
 
   # Placeholders: <<JD_EXCERPT>> (800 chars), <<ARCHETYPES>>, <<CANDIDATE_NAME>>, <<CANDIDATE_LABEL>>, <<CAREER_GOALS>>
   cover_letter: |
-    You are writing a cover letter body for a German job application.
-    Write in formal German business style. Use German language.
+    You are writing a cover letter body for a job application.
+    Write in formal English. Use English language only.
     Write in first person (I, my, me). Length: 200–300 words.
 
     JOB: <<JD_EXCERPT>>
