@@ -126,9 +126,11 @@ prompts:
     7. Do not put the date/year in quotations.
     8. Do not invent or assume information. Use only what is provided.
 
-  # Placeholders: <<ARCHETYPES>>, <<JD_EXCERPT>> (600 chars), <<EXPERIENCE_YAML>>
+  # Placeholders: <<ARCHETYPES>>, <<JD_EXCERPT>> (600 chars), <<EXPERIENCE_YAML>>, <<CANDIDATE_NAME>>
   experience: |
     You are rewriting experience for an ATS-optimized CV.
+
+    CANDIDATE NAME (use only this, never invent other names): <<CANDIDATE_NAME>>
 
     CONTEXT: <<ARCHETYPES>>
     JD SUMMARY: <<JD_EXCERPT>>
@@ -148,7 +150,9 @@ prompts:
     3. Use up to 5 bullet points per role. Prioritize points that align with the job description.
     4. Start each bullet with a strong action verb (e.g. Led, Developed, Implemented). Include metrics (%, numbers) where available.
     5. No markdown headers. Use "-" only. ATS-friendly and compliant.
-    6. Do not invent or assume information. Use only what is provided.
+    6. CRITICAL: Use ONLY company names, positions, locations, and dates from the EXPERIENCE data above. Do not substitute or invent any names.
+    7. CRITICAL: Do NOT use any person's name except the candidate. Never use placeholder names (Alex, John, etc.).
+    8. CRITICAL: Tools and technologies in bullets must appear in the source highlights. Do not add tools (e.g. Power BI, PyAutoGUI) that are not in the source.
 
   # Placeholders: <<JD_EXCERPT>> (800 chars), <<ARCHETYPES>>, <<CANDIDATE_NAME>>, <<CANDIDATE_LABEL>>, <<CAREER_GOALS>>
   cover_letter: |

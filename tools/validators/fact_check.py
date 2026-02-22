@@ -42,13 +42,35 @@ def _extract_education_from_profile(profile: Dict) -> Dict:
 
 
 def _extract_experience_from_profile(profile: Dict) -> Dict:
+    """Extract companies, positions, locations, dates per role for strict matching."""
     exp = profile.get("experience", [])
     companies = set()
     positions = set()
+    locations = set()
+    roles = []  # Full role data for strict matching
     for e in exp:
-        companies.add(_normalize(e.get("company", "")))
-        positions.add(_normalize(e.get("position", "")))
-    return {"companies": companies, "positions": positions}
+        c = _normalize(e.get("company", ""))
+        p = _normalize(e.get("position", ""))
+        loc = _normalize(e.get("location", ""))
+        if c:
+            companies.add(c)
+        if p:
+            positions.add(p)
+        if loc:
+            locations.add(loc)
+        roles.append({
+            "company": c,
+            "position": p,
+            "location": loc,
+            "startDate": _normalize(str(e.get("startDate", ""))),
+            "endDate": _normalize(str(e.get("endDate", ""))),
+        })
+    return {
+        "companies": companies,
+        "positions": positions,
+        "locations": locations,
+        "roles": roles,
+    }
 
 
 def fact_check(
@@ -122,19 +144,68 @@ def fact_check(
 
     elif section_name == "experience":
         exp = _extract_experience_from_profile(profile)
-        # Check company names
+        # STRICT: Every company in profile must appear in output
         for company in exp["companies"]:
-            if company and len(company) > 3 and company not in text_norm:
-                # Allow abbreviations
+            if not company:
+                continue
+            # Allow partial match (e.g. "Mercedes Benz AG" vs "Mercedes Benz")
+            if company not in text_norm:
                 first_word = company.split()[0] if company else ""
-                if first_word and first_word not in text_norm:
-                    pass  # Skip strict check for now
+                if not first_word or first_word not in text_norm:
+                    violations.append(
+                        Violation(
+                            claim=f"Company '{company}' missing",
+                            source="experience",
+                            expected="All companies from profile must appear exactly",
+                        )
+                    )
+        # STRICT: Every position must appear
+        for pos in exp["positions"]:
+            if not pos or len(pos) < 4:
+                continue
+            if pos not in text_norm:
+                first_word = pos.split()[0] if pos else ""
+                if not first_word or first_word not in text_norm:
+                    violations.append(
+                        Violation(
+                            claim=f"Position '{pos}' missing or altered",
+                            source="experience",
+                            expected="Use exact position titles from profile",
+                        )
+                    )
+        # Check for fabricated companies: output companies must be in profile
+        # Extract company-like phrases after **Role**, (format: **Role**, Company, Location)
+        role_blocks = re.split(r"(?=\*\*[^*]+\*\*)", text)
+        for block in role_blocks:
+            if not block.strip() or not block.strip().startswith("**"):
+                continue
+            # First line is **Position**, Company, Location, Date
+            first_line = block.strip().split("\n")[0]
+            # Extract text between first ** and end - get Company part (after first comma)
+            match = re.search(r"\*\*([^*]+)\*\*\s*,\s*([^,]+)", first_line)
+            if match:
+                company_in_output = _normalize(match.group(2).strip())
+                if company_in_output and not any(
+                    company_in_output in c or c in company_in_output
+                    for c in exp["companies"]
+                ):
+                    violations.append(
+                        Violation(
+                            claim=f"Company '{match.group(2).strip()}' not in profile",
+                            source="experience",
+                            expected="Use ONLY companies from profile",
+                        )
+                    )
 
     passed = len(violations) == 0
+    v_list = [{"claim": v.claim, "source": v.source, "expected": v.expected} for v in violations]
+    feedback = ""
+    if not passed:
+        feedback = "VALIDATION FAILED: " + "; ".join(
+            f"{v.claim} ({v.expected})" for v in violations[:5]
+        )
     return {
         "passed": passed,
-        "violations": [
-            {"claim": v.claim, "source": v.source, "expected": v.expected}
-            for v in violations
-        ],
+        "violations": v_list,
+        "feedback": feedback,
     }

@@ -15,6 +15,7 @@ from tools.validators import (
     fact_check,
     detect_hallucinations,
     validate_length,
+    validate_profile_match,
 )
 from tools.validators.format import _load_rules
 
@@ -156,6 +157,9 @@ def run(
             v.append(lambda txt: fact_check(section, txt, profile_data))
         if section in ("projects", "experience", "skills"):
             v.append(lambda txt: detect_hallucinations(section, txt, profile_data))
+        # STRICT: Reject wrong person names - only candidate name allowed
+        if section in ("professional_summary", "experience", "cover_letter"):
+            v.append(lambda txt: validate_profile_match(section, txt, profile_data))
         if section == "cover_letter":
             v.append(
                 lambda txt: validate_length(
@@ -177,59 +181,56 @@ def run(
             return gen_callable(*args, **kwargs)
         return _gen
 
-    # 2. Parallel: Education, Certifications, Soft Skills (soft skills merged into skills)
-    education_md = ""
-    certs_md = ""
+    # 2. Education and Certifications (with validation + retry for stricter matching)
+    def _gen_education(fb):
+        return generators.generate_smart_education(
+            profile, jd, archetypes, _generate_with_log, _log_step, feedback=fb
+        )
+    def _gen_certs(fb):
+        return generators.generate_smart_certifications(
+            profile, jd, archetypes, _generate_with_log, _log_step, feedback=fb
+        )
+    education_validators = _validators_for("education", profile)
+    certs_validators = _validators_for("certifications", profile)
+
     if use_parallel:
-        with ThreadPoolExecutor(max_workers=3) as ex:
-            futures = {
-                ex.submit(
-                    generators.generate_smart_education,
-                    profile, jd, archetypes,
-                    _generate_with_log, _log_step,
-                ): "education",
-                ex.submit(
-                    generators.generate_smart_certifications,
-                    profile, jd, archetypes,
-                    _generate_with_log, _log_step,
-                ): "certifications",
-            }
-            for fut in as_completed(futures):
-                name = futures[fut]
-                try:
-                    out = fut.result()
-                    if name == "education":
-                        education_md = _normalize_spacing(out)
-                    else:
-                        certs_md = _normalize_spacing(out)
-                except Exception as e:
-                    print(f"⚠️ Error generating {name}: {e}")
-                    if _logger:
-                        _logger.exception(f"Error generating {name}")
+        with ThreadPoolExecutor(max_workers=2) as ex:
+            edu_fut = ex.submit(
+                _generate_with_feedback,
+                "education", _gen_education, education_validators, max_retries,
+            )
+            certs_fut = ex.submit(
+                _generate_with_feedback,
+                "certifications", _gen_certs, certs_validators, max_retries,
+            )
+            education_md = _normalize_spacing(edu_fut.result())
+            certs_md = _normalize_spacing(certs_fut.result())
     else:
         education_md = _normalize_spacing(
-            generators.generate_smart_education(
-                profile, jd, archetypes, _generate_with_log, _log_step
-            )
+            _generate_with_feedback("education", _gen_education, education_validators, max_retries)
         )
         certs_md = _normalize_spacing(
-            generators.generate_smart_certifications(
-                profile, jd, archetypes, _generate_with_log, _log_step
-            )
+            _generate_with_feedback("certifications", _gen_certs, certs_validators, max_retries)
         )
 
-    # 3. Summary
-    summary_md = _normalize_spacing(
-        generators.generate_professional_summary(
-            profile, jd, archetypes, _generate_with_log, _log_step
+    # 3. Summary (with validation + retry)
+    def _gen_summary(fb):
+        return generators.generate_professional_summary(
+            profile, jd, archetypes, _generate_with_log, _log_step, feedback=fb
         )
+    summary_validators = _validators_for("professional_summary", profile)
+    summary_md = _normalize_spacing(
+        _generate_with_feedback("professional_summary", _gen_summary, summary_validators, max_retries)
     )
 
-    # 4. Skills
-    skills_md = _normalize_spacing(
-        generators.generate_smart_skills(
-            profile, jd, archetypes, _generate_with_log, _log_step
+    # 4. Skills (with validation + retry)
+    def _gen_skills(fb):
+        return generators.generate_smart_skills(
+            profile, jd, archetypes, _generate_with_log, _log_step, feedback=fb
         )
+    skills_validators = _validators_for("skills", profile)
+    skills_md = _normalize_spacing(
+        _generate_with_feedback("skills", _gen_skills, skills_validators, max_retries)
     )
 
     # 5. Projects (with validation + retry)
@@ -252,9 +253,14 @@ def run(
         _generate_with_feedback("experience", _gen_experience, exp_validators, max_retries)
     )
 
-    # 7. Cover Letter
-    cover_letter_md = generators.generate_cover_letter(
-        profile, jd, archetypes, _generate_with_log, _log_step
+    # 7. Cover Letter (with validation + retry)
+    def _gen_cover_letter(fb):
+        return generators.generate_cover_letter(
+            profile, jd, archetypes, _generate_with_log, _log_step, feedback=fb
+        )
+    cover_letter_validators = _validators_for("cover_letter", profile)
+    cover_letter_md = _generate_with_feedback(
+        "cover_letter", _gen_cover_letter, cover_letter_validators, max_retries
     )
 
     return {

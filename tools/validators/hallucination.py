@@ -63,14 +63,16 @@ def _extract_tech_mentions(text: str) -> Set[str]:
     """Extract potential tech/tool mentions from text."""
     # Look for capitalized tech terms and common tools
     words = set(re.findall(r"\b[A-Z][a-zA-Z0-9+#]*\b", text))
-    # Add lowercase tech terms
+    # Add lowercase tech terms (expanded list)
     tech_terms = re.findall(
         r"\b(python|c\+\+|sql|matlab|pandas|numpy|tensorflow|pytorch|"
         r"yolov2|u-net|kitti|nuscenes|solidworks|ansys|docker|ros2|django|"
-        r"plotly|dash|tensorboard|matplotlib|scikit-learn|excel)\b",
+        r"plotly|dash|tensorboard|matplotlib|scikit-learn|excel|"
+        r"pyautogui|abaqus|windchill|dremio|sap|gantt)\b",
         text.lower()
     )
-    return words | set(tech_terms)
+    power_bi = [re.sub(r"\s+", "", m) for m in re.findall(r"power\s*bi|powerbi", text.lower())]
+    return words | set(tech_terms) | set(power_bi)
 
 
 def detect_hallucinations(
@@ -134,21 +136,45 @@ def detect_hallucinations(
                     violations.append(f"Tool/tech not in profile: '{m}'")
 
     elif section_name == "experience":
+        # STRICT: Build allowed tools/skills per role from that role's highlights only
+        exp = profile.get("experience", [])
+        tech_pattern = re.compile(
+            r"\b(Python|C\+\+|SQL|MATLAB|Pandas|NumPy|TensorFlow|PyTorch|"
+            r"Plotly|Dash|TensorBoard|Matplotlib|Scikit-learn|Excel|"
+            r"PyAutoGUI|Abaqus|Power BI|Windchill|Dremio|SAP|Gantt|"
+            r"Docker|ROS2|Django|SolidWorks|ANSYS)\b",
+            re.IGNORECASE
+        )
+        all_allowed_from_experience = set()
+        for role in exp:
+            content = (
+                str(role.get("summary", "")) + " "
+                + " ".join(role.get("highlights", []))
+            ).lower()
+            tokens = set(re.findall(r"\b[a-z0-9+]+\b", content))
+            found = set(tech_pattern.findall(content))
+            all_allowed_from_experience.update(tokens)
+            all_allowed_from_experience.update(_normalize(t) for t in found)
+        # Also allow profile skills (used across roles)
         allowed_skills = _build_allowed_skills(profile)
-        # Experience can mention skills; check for obvious fabrications
+        all_allowed_from_experience.update(allowed_skills)
+        # Check every tech mention in output
         mentioned = _extract_tech_mentions(text)
+        whitelist = {"a", "i", "the", "and", "or", "in", "on", "to", "of", "for"}
         for m in mentioned:
             mn = _normalize(m)
-            if mn in allowed_skills:
+            if mn in whitelist or len(mn) < 3:
                 continue
-            # Allow common words
-            if len(mn) < 4:
+            if any(mn in a or a in mn for a in all_allowed_from_experience):
                 continue
-            # Strict: flag if it looks like a tool but isn't in profile
+            # Flag any tech-like term not in profile experience
             if any(
-                x in mn for x in ["pyautogui", "abaqus", "power bi", "powerbi"]
+                x in mn for x in [
+                    "pyautogui", "abaqus", "powerbi", "power bi",
+                    "ls-dyna", "lsdyna", "powerbi"
+                ]
             ):
-                violations.append(f"Tool not in profile: '{m}'")
+                violations.append(f"Tool/tech not in profile experience: '{m}'")
 
     passed = len(violations) == 0
     feedback = ""

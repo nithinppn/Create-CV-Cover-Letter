@@ -138,6 +138,7 @@ def generate_smart_skills(
     archetypes: List[str],
     generate_fn: Optional[Callable] = None,
     log_step_fn: Optional[Callable] = None,
+    feedback: Optional[str] = None,
 ) -> str:
     """Generate combined tech + soft skills + languages section."""
     gen = generate_fn or (lambda p, l: llm_generate(p, l, log_step_fn=log_step_fn))
@@ -149,6 +150,8 @@ def generate_smart_skills(
         JD_EXCERPT=jd[:1000],
         ALL_SKILLS_JSON=json.dumps(all_skills),
     )
+    if feedback:
+        prompt = prompt + "\n\n" + feedback
     raw = gen(prompt, "Smart Skills Section")
     cleaned_tech = clean_skills_output(raw)
     if log_step_fn:
@@ -238,6 +241,7 @@ def generate_experience(
         ARCHETYPES=archetypes,
         JD_EXCERPT=jd[:600],
         EXPERIENCE_YAML=yaml.dump(profile.get("experience", [])),
+        CANDIDATE_NAME=profile.get("basics", {}).get("name", ""),
     )
     if feedback:
         prompt = prompt + "\n\n" + feedback
